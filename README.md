@@ -508,5 +508,789 @@ Page 2 — Intraday Analysis (5m & 15m)
 market hours. 
 • Daily volatility stays within a predictable range, but 5m & 15m intervals capture micro
 movements critical for traders.
- 
 
+6) >>Blueprint MySQL Workbench  (Pelican Store Analysis)
+
+     1. Total Revenue (Sales) 
+Purpose: Overall sales value—the top-line KPI. 
+sql 
+SELECT ROUND(SUM(Sales), 2) AS total_revenue 
+FROM pelican_store; 
+Result: total_revenue'7760.05' 
+
+2. Total Items Sold 
+Purpose: Overall basket throughput. 
+sql 
+SELECT SUM(Items) AS total_items_sold 
+FROM pelicanstore; 
+Result: total_items_sold 322 
+
+3. Average Order Value (AOV) 
+Purpose: Efficiency of each transaction (revenue per order). 
+sql 
+SELECT ROUND(SUM(Sales) / COUNT(*), 2) AS avg_order_value 
+FROM pelican_store; 
+Result: avg_order_value 
+77.6 
+
+4. Average Items per Order 
+Purpose: Basket size trend. 
+sql 
+SELECT ROUND(AVG(Items), 2) AS avg_items_per_order 
+FROM pelican_store; 
+Result: avg_items_per_order 
+3.22 
+
+5. Average Discount per Order 
+Purpose: Promotion intensity and margin pressure. 
+sql 
+SELECT ROUND(AVG(Discount), 2) AS avg_discount_per_order 
+FROM pelican_store; 
+Result: avg_discount_per_order 
+22.45 
+
+6. Discount Ratio (Discount as % of Sales) 
+Purpose: How much discount we give relative to sales; proxy for margin dilution. 
+sql 
+SELECT ROUND(SUM(Discount) / NULLIF(SUM(Sales),0) * 100, 2) AS discount_pct_of_sales 
+FROM pelican_store; 
+Result: discount_pct_of_sales 
+28.93 
+
+7. Revenue by Payment Method (top driver analysis) 
+Purpose: Identify top-performing payment channels. 
+sql 
+SELECT MethodOfPayment, 
+COUNT(*) AS orders, 
+SUM(Items) AS items_sold, 
+ROUND(SUM(Sales), 2) AS revenue, 
+ROUND(SUM(Discount), 2) AS total_discount, 
+ROUND(AVG(Sales), 2) AS avg_order_value 
+FROM pelican_store 
+GROUP BY MethodOfPayment 
+ORDER BY revenue DESC; 
+Result: orders, items_sold, revenue, total_discount, avg_order_value 
+100, 322, 7760.05, 2245.18, 77.6 
+
+8. Conversion proxy by Payment Method (Avg Items and Avg Discount) 
+Purpose: Examine behavior differences across payment rails. 
+sql 
+SELECT MethodOfPayment, 
+ROUND(AVG(Items), 2) AS avg_items, 
+ROUND(AVG(Discount), 2) AS avg_discount 
+FROM pelican_store 
+GROUP BY MethodOfPayment 
+ORDER BY avg_items DESC; 
+Result: Gender, orders, revenue, avg_order_value, total_discount 
+Female, 93, 7364.65, 79.19, 2154.58 
+Male, 7, 395.4, 56.49, 90.6 
+
+9. Revenue and AOV by Gender 
+Purpose: Segment performance by gender. 
+sql 
+SELECT Gender, 
+COUNT(*) AS orders, 
+ROUND(SUM(Sales), 2) AS revenue, 
+ROUND(AVG(Sales), 2) AS avg_order_value, 
+ROUND(SUM(Discount), 2) AS total_discount 
+FROM pelican_store 
+GROUP BY Gender 
+ORDER BY revenue DESC; 
+Result: age_band, orders, items_sold, revenue, avg_order_value, avg_discount 
+45-54, 28, 99, 2508.68, 89.6, 24.05 
+35-44, 29, 92, 2150.61, 74.16, 20.38 
+25-34, 24, 85, 1887.33, 78.64, 29.05 
+65+, 6, 16, 477.77, 79.63, 15 
+55-64, 8, 22, 417.56, 52.2, 16.56 
+<25, 5, 8, 318.1, 63.62, 12.18 
+
+10. Revenue by Marital Status 
+Purpose: Understand household effect. 
+sql 
+SELECT MaritalStatus, 
+COUNT(*) AS orders, 
+ROUND(SUM(Sales), 2) AS revenue, 
+ROUND(AVG(Sales), 2) AS avg_order_value 
+FROM pelican_store 
+GROUP BY MaritalStatus 
+ORDER BY revenue DESC; 
+Result: Customer, orders, items_sold, revenue, total_discount 
+98, 1, 10, 287.59, 18 
+23, 1, 7, 266, 66.5 
+97, 1, 9, 253, 82.75 
+94, 1, 17, 229.5, 33 
+41, 1, 13, 198.8, 62.7 
+28, 1, 5, 192.8, 48.2 
+51, 1, 6, 176.62, 58.88 
+13, 1, 9, 160.4, 103.6 
+93, 1, 5, 159.75, 0 
+71, 1, 5, 155.32, 57.18 
+
+11. Age Cohort performance 
+Purpose: Identify sweet-spot age bands. 
+sql 
+WITH cohorts AS ( 
+SELECT CASE 
+WHEN Age < 25 THEN '<25' 
+WHEN Age BETWEEN 25 AND 34 THEN '25-34' 
+WHEN Age BETWEEN 35 AND 44 THEN '35-44' 
+WHEN Age BETWEEN 45 AND 54 THEN '45-54' 
+WHEN Age BETWEEN 55 AND 64 THEN '55-64' 
+ELSE '65+' 
+END AS age_band, 
+Sales, Items, Discount 
+FROM pelican_store 
+) 
+SELECT age_band, 
+COUNT(*) AS orders, 
+SUM(Items) AS items_sold, 
+ROUND(SUM(Sales),2) AS revenue, 
+ROUND(AVG(Sales),2) AS avg_order_value, 
+ROUND(AVG(Discount),2) AS avg_discount 
+FROM cohorts 
+GROUP BY age_band 
+ORDER BY revenue DESC; 
+Result: Customer, total_discount, revenue, discount_pct_of_sales 
+39, 25.02, 13.23, 189.12 
+91, 158.3, 95.2, 166.28 
+62, 91.48, 59.91, 152.7 
+45, 35.2, 23.8, 147.9 
+4, 121.1, 100.4, 120.62 
+42, 16.5, 19.5, 84.62 
+90, 46.4, 57.6, 80.56 
+20, 32.2, 44.8, 71.88 
+63, 37.4, 53.6, 69.78 
+99, 31.4, 47.6, 65.97 
+
+12. Top 10 High-Value Customers 
+Purpose: Target for retention/loyalty. 
+sql 
+SELECT Customer, 
+       COUNT(*) AS orders, 
+       SUM(Items) AS items_sold, 
+       ROUND(SUM(Sales),2) AS revenue, 
+       ROUND(SUM(Discount),2) AS total_discount 
+FROM pelican_store 
+GROUP BY Customer 
+ORDER BY revenue DESC 
+LIMIT 10; 
+Result: Leaderboard of highest-revenue customers. 
+
+13. Heavy Discount users (Top 10 by discount share) 
+Purpose: Margin risk monitoring. 
+sql 
+SELECT Customer, 
+       ROUND(SUM(Discount),2) AS total_discount, 
+       ROUND(SUM(Sales),2) AS revenue, 
+       ROUND(SUM(Discount) / NULLIF(SUM(Sales),0) * 100, 2) AS discount_pct_of_sales 
+FROM pelican_store 
+GROUP BY Customer 
+HAVING SUM(Sales) > 0 
+ORDER BY discount_pct_of_sales DESC, total_discount DESC 
+LIMIT 10; 
+Result: Customers who get the largest discount share relative to their spend. 
+
+14. Basket Mix: Items vs. Sales correlation proxy 
+Purpose: Check whether bigger baskets translate to higher spend consistently. 
+sql 
+SELECT ROUND(AVG(Items),2) AS avg_items, 
+       ROUND(AVG(Sales),2) AS avg_sales, 
+       ROUND(AVG(Sales) / NULLIF(AVG(Items),0), 2) AS avg_sales_per_item 
+FROM pelican_store; 
+Result: High-level efficiency metric (revenue per item). 
+
+15. Payment Method efficiency (Sales per Item) 
+Purpose: Identify channels with the best monetization per item. 
+sql 
+SELECT MethodOfPayment, 
+       ROUND(SUM(Sales) / NULLIF(SUM(Items),0), 2) AS sales_per_item, 
+       ROUND(SUM(Sales),2) AS revenue, 
+       SUM(Items) AS items 
+FROM pelican_store 
+GROUP BY MethodOfPayment 
+ORDER BY sales_per_item DESC; 
+Result: Rank payment methods by revenue-per-item efficiency. 
+
+16. Gender × Marital cross-segmentation 
+Purpose: Pinpoint strongest demographic segment. 
+sql 
+SELECT Gender, 
+       MaritalStatus, 
+       COUNT(*) AS orders, 
+       ROUND(SUM(Sales),2) AS revenue, 
+       ROUND(AVG(Sales),2) AS avg_order_value 
+FROM pelican_store 
+GROUP BY Gender, MaritalStatus 
+ORDER BY revenue DESC; 
+Result: Which demographic combination spends the most. 
+
+17. Price-sensitivity: Average Discount by Age Band 
+Purpose: Spot groups most responsive to discounts. 
+sql 
+WITH cohorts AS ( 
+  SELECT CASE 
+           WHEN Age < 25 THEN '<25' 
+           WHEN Age BETWEEN 25 AND 34 THEN '25-34' 
+           WHEN Age BETWEEN 35 AND 44 THEN '35-44' 
+           WHEN Age BETWEEN 45 AND 54 THEN '45-54' 
+           WHEN Age BETWEEN 55 AND 64 THEN '55-64' 
+           ELSE '65+' 
+         END AS age_band, 
+         Discount 
+  FROM pelican_store 
+) 
+SELECT age_band, 
+       ROUND(AVG(Discount),2) AS avg_discount_per_order 
+FROM cohorts 
+GROUP BY age_band 
+ORDER BY avg_discount_per_order DESC; 
+Result: Age cohorts ranked by discount taken. 
+
+18. High vs Low Discount impact on AOV 
+Purpose: Understand discount thresholds on order value. 
+sql 
+WITH bands AS ( 
+  SELECT CASE 
+           WHEN Discount >= 50 THEN '50+' 
+           WHEN Discount BETWEEN 20 AND 49.99 THEN '20-49.99' 
+           WHEN Discount BETWEEN 1 AND 19.99 THEN '1-19.99' 
+           ELSE '0' 
+         END AS discount_band, 
+         Sales 
+  FROM pelican_store 
+) 
+SELECT discount_band, 
+       COUNT(*) AS orders, 
+       ROUND(AVG(Sales),2) AS avg_order_value 
+FROM bands 
+GROUP BY discount_band 
+ORDER BY FIELD(discount_band,'0','1-19.99','20-49.99','50+'); 
+Result: How AOV changes with discount band. 
+
+19. Outlier detection: Highest single-order Sales 
+Purpose: Audit and campaign insights. 
+sql 
+SELECT * 
+FROM pelican_store 
+ORDER BY Sales DESC 
+LIMIT 5; 
+Result: Top 5 largest orders for QA/strategies. 
+
+20. Quality checks: Negative or inconsistent values 
+Purpose: Data integrity. 
+sql 
+SELECT * 
+FROM pelican_store 
+WHERE Sales < 0 OR Items <= 0 OR Discount < 0 OR Age <= 0; 
+Result: Returns any suspicious records (should be zero rows)   
+
+7) >> MYsql Workbench Worldcup Analysis
+
+SCENARIO 1: Scoring Trends 
+• Goals per match evolution by year 
+• Decade-wise scoring patterns 
+• Highest scoring matches 
+• Top scoring teams by tournament 
+
+SCENARIO 2: Team Performance 
+• Most successful teams across all World Cups 
+• Performance by tournament stage 
+• Home advantage analysis 
+• Winners and runners-up tracking 
+
+SCENARIO 3: Attendance Patterns 
+• Attendance trends over time 
+• Stadium capacity utilization 
+• Match Importance vs attendance 
+• Host country impact on crowds 
+
+SCENARIO 4: Geographic Analysis 
+• Matches by host country 
+• Most-used stadiums 
+• Continental distribution 
+• Venue efficiency metrics 
+
+SCENARIO 5: Referee Patterns 
+• Most active referees 
+• Referee nationality analysis 
+• High-scoring matches by referee 
+• Performance in crucial matches 
+
+SCENARIO 6: Tournament Evolution 
+• Tournament size growth 
+• Format changes over time 
+• Duration analysis 
+• Penalty shootout trends 
+
+SCENARIO 7: Advanced KPIs 
+• Tournament competitiveness index 
+• Stadium ROI analysis 
+• Team consistency metrics 
+• Overall tournament quality scores 
+
+CODES-Snippets 
+
+SCENARIO 1: SCORING TRENDS ANALYSIS 
+1.1 Goals per match by tournament year 
+sql 
+SELECT  
+year, 
+COUNT(DISTINCT game_id) as total_matches, 
+SUM(goals) as total_goals, 
+ROUND(SUM(goals) / COUNT(DISTINCT game_id), 2) as avg_goals_per_match, 
+MAX(goals) as highest_goals_in_match, 
+MIN(goals) as lowest_goals_in_match 
+FROM world_cup_data  
+GROUP BY year  
+ORDER BY year; 
+
+1.2 Top scoring teams by tournament 
+sql 
+SELECT  
+year, 
+team, 
+SUM(goals) as total_goals, 
+COUNT(*) as matches_played, 
+ROUND(AVG(goals), 2) as avg_goals_per_match 
+FROM world_cup_data  
+GROUP BY year, team 
+HAVING matches_played >= 3 
+ORDER BY year, total_goals DESC; 
+
+1.3 Highest scoring individual matches 
+sql 
+SELECT  
+year, 
+date, 
+stadium, 
+MAX(CASE WHEN team_num = 1 THEN team END) as team1, 
+MAX(CASE WHEN team_num = 1 THEN goals END) as team1_goals, 
+MAX(CASE WHEN team_num = 2 THEN team END) as team2, 
+MAX(CASE WHEN team_num = 2 THEN goals END) as team2_goals, 
+(MAX(CASE WHEN team_num = 1 THEN goals END) +  
+MAX(CASE WHEN team_num = 2 THEN goals END)) as total_goals 
+FROM world_cup_data 
+GROUP BY year, date, stadium, game_id 
+ORDER BY total_goals DESC 
+LIMIT 20; 
+
+1.4 Tournament scoring evolution (decade-wise) 
+sql 
+SELECT  
+CASE  
+WHEN year BETWEEN 1930 AND 1939 THEN '1930s' 
+WHEN year BETWEEN 1940 AND 1949 THEN '1940s' 
+WHEN year BETWEEN 1950 AND 1959 THEN '1950s' 
+WHEN year BETWEEN 1960 AND 1969 THEN '1960s' 
+WHEN year BETWEEN 1970 AND 1979 THEN '1970s' 
+WHEN year BETWEEN 1980 AND 1989 THEN '1980s' 
+WHEN year BETWEEN 1990 AND 1999 THEN '1990s' 
+WHEN year BETWEEN 2000 AND 2009 THEN '2000s' 
+WHEN year BETWEEN 2010 AND 2019 THEN '2010s' 
+ELSE '2020s' 
+END as decade, 
+COUNT(DISTINCT year) as tournaments, 
+COUNT(DISTINCT game_id) as total_matches, 
+SUM(goals) as total_goals, 
+ROUND(AVG(goals), 2) as avg_goals_per_team_per_match 
+FROM world_cup_data 
+GROUP BY decade 
+ORDER BY decade; 
+
+SCENARIO 2: TEAM PERFORMANCE ANALYSIS 
+2.1 Most successful teams across all World Cups 
+sql 
+SELECT  
+team, 
+COUNT(DISTINCT year) as tournaments_played, 
+COUNT(*) as total_matches, 
+SUM(goals) as total_goals_scored, 
+ROUND(AVG(goals), 2) as avg_goals_per_match, 
+COUNT(CASE WHEN stage = 'FINAL ROUND' THEN 1 END) as final_appearances, 
+COUNT(CASE WHEN stage = '1/2 FINAL' THEN 1 END) as semifinal_appearances 
+FROM world_cup_data 
+GROUP BY team 
+HAVING tournaments_played >= 5 
+ORDER BY tournaments_played DESC, total_goals_scored DESC; 
+
+2.2 Team performance by tournament stage 
+sql 
+SELECT  
+stage, 
+COUNT(DISTINCT game_id) as matches, 
+COUNT(DISTINCT team) as teams_involved, 
+SUM(goals) as total_goals, 
+ROUND(AVG(goals), 2) as avg_goals_per_team, 
+MAX(goals) as highest_individual_score 
+FROM world_cup_data 
+WHERE stage IS NOT NULL 
+GROUP BY stage 
+ORDER BY avg_goals_per_team DESC; 
+
+2.3 Home advantage analysis 
+sql 
+SELECT  
+CASE  
+WHEN team = home THEN 'Home Team' 
+ELSE 'Away Team' 
+END as team_status, 
+COUNT(*) as matches, 
+SUM(goals) as total_goals, 
+ROUND(AVG(goals), 2) as avg_goals_per_match, 
+COUNT(CASE WHEN goals >= 2 THEN 1 END) as high_scoring_matches 
+FROM world_cup_data 
+WHERE home IS NOT NULL 
+GROUP BY team_status; 
+
+2.4 Tournament winners and runners-up analysis 
+sql 
+SELECT  
+year, 
+MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 1 THEN team END) as team1, 
+MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 1 THEN goals END) as team1_goals, 
+MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 2 THEN team END) as team2, 
+MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 2 THEN goals END) as team2_goals, 
+CASE  
+WHEN MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 1 THEN goals END) >  
+MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 2 THEN goals END) 
+THEN MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 1 THEN team END) 
+ELSE MAX(CASE WHEN stage = 'FINAL ROUND' AND team_num = 2 THEN team END) 
+END as winner, 
+stadium as final_venue 
+FROM world_cup_data 
+WHERE stage = 'FINAL ROUND' 
+GROUP BY year, stadium 
+ORDER BY year; 
+
+SCENARIO 3: ATTENDANCE PATTERNS ANALYSIS 
+3.1 Attendance trends by year 
+sql 
+SELECT  
+year, 
+COUNT(DISTINCT game_id) as total_matches, 
+SUM(attendance) / COUNT(DISTINCT game_id) as avg_attendance_per_match, 
+MAX(attendance) as highest_attendance, 
+MIN(attendance) as lowest_attendance, 
+STDDEV(attendance) as attendance_std_dev 
+FROM world_cup_data 
+GROUP BY year 
+ORDER BY year; 
+
+3.2 Stadium capacity utilization analysis 
+sql 
+SELECT  
+stadium, 
+COUNT(DISTINCT game_id) as matches_hosted, 
+AVG(attendance) as avg_attendance, 
+MAX(attendance) as max_attendance, 
+MIN(attendance) as min_attendance, 
+year 
+FROM world_cup_data 
+GROUP BY stadium, year 
+HAVING matches_hosted >= 3 
+ORDER BY avg_attendance DESC 
+LIMIT 20; 
+
+3.3 Attendance by tournament stage 
+sql 
+SELECT  
+stage, 
+COUNT(DISTINCT game_id) as matches, 
+ROUND(AVG(attendance), 0) as avg_attendance, 
+MAX(attendance) as peak_attendance, 
+MIN(attendance) as min_attendance 
+FROM world_cup_data 
+WHERE stage IS NOT NULL 
+GROUP BY stage 
+ORDER BY avg_attendance DESC; 
+
+3.4 Host country attendance impact 
+sql 
+SELECT  
+year, 
+home as host_country, 
+COUNT(DISTINCT game_id) as total_matches, 
+ROUND(AVG(attendance), 0) as avg_attendance, 
+SUM(attendance) as total_attendance, 
+MAX(attendance) as peak_single_match 
+FROM world_cup_data 
+GROUP BY year, home 
+ORDER BY year; 
+
+3.5 Attendance patterns by match importance 
+sql 
+SELECT  
+CASE  
+WHEN stage LIKE '%FINAL%' THEN 'Finals' 
+WHEN stage LIKE '%1/2%' THEN 'Semi-Finals' 
+WHEN stage LIKE '%1/4%' THEN 'Quarter-Finals' 
+WHEN stage LIKE '%1/8%' THEN 'Round of 16' 
+WHEN stage LIKE '%GROUP%' THEN 'Group Stage' 
+ELSE 'Other' 
+END as match_importance, 
+COUNT(DISTINCT game_id) as matches, 
+ROUND(AVG(attendance), 0) as avg_attendance, 
+MAX(attendance) as highest_attendance 
+FROM world_cup_data 
+GROUP BY match_importance 
+ORDER BY avg_attendance DESC; 
+
+SCENARIO 4: GEOGRAPHIC DISTRIBUTION ANALYSIS 
+4.1 Matches by host country/region 
+sql 
+SELECT  
+home as host_country, 
+year, 
+COUNT(DISTINCT game_id) as matches_hosted, 
+COUNT(DISTINCT stadium) as venues_used, 
+ROUND(AVG(attendance), 0) as avg_attendance, 
+SUM(goals) as total_goals_in_country 
+FROM world_cup_data 
+GROUP BY home, year 
+ORDER BY year, matches_hosted DESC; 
+
+4.2 Most used stadiums across all World Cups 
+sql 
+SELECT  
+stadium, 
+home as country, 
+COUNT(DISTINCT year) as different_tournaments, 
+COUNT(DISTINCT game_id) as total_matches, 
+ROUND(AVG(attendance), 0) as avg_attendance, 
+SUM(goals) as total_goals_witnessed 
+FROM world_cup_data 
+GROUP BY stadium, home 
+HAVING total_matches >= 5 
+ORDER BY total_matches DESC; 
+
+4.3 Geographic distribution by continent 
+sql 
+SELECT  
+CASE  
+WHEN home IN ('Brazil', 'Argentina', 'Chile', 'Uruguay', 'Mexico', 'USA') THEN 'Americas' 
+WHEN home IN ('Italy', 'France', 'Germany', 'England', 'Spain', 'Sweden', 'Switzerland') THEN 'Europe' 
+WHEN home IN ('Japan', 'South Korea') THEN 'Asia' 
+ELSE 'Other' 
+END as continent, 
+COUNT(DISTINCT year) as tournaments_hosted, 
+COUNT(DISTINCT game_id) as total_matches, 
+ROUND(AVG(attendance), 0) as avg_attendance 
+FROM world_cup_data 
+GROUP BY continent 
+ORDER BY tournaments_hosted DESC; 
+
+4.4 Venue efficiency analysis (goals per attendance) 
+sql 
+SELECT  
+stadium, 
+home as country, 
+year, 
+COUNT(DISTINCT game_id) as matches, 
+SUM(goals) as total_goals, 
+SUM(attendance) as total_attendance, 
+ROUND(SUM(goals) / SUM(attendance) * 1000, 3) as goals_per_1000_spectators 
+FROM world_cup_data 
+GROUP BY stadium, home, year 
+HAVING matches >= 3 
+ORDER BY goals_per_1000_spectators DESC 
+LIMIT 20; 
+
+SCENARIO 5: REFEREE PATTERNS ANALYSIS 
+5.1 Most active referees across tournaments 
+sql 
+SELECT  
+referee, 
+COUNT(DISTINCT year) as tournaments_officiated, 
+COUNT(DISTINCT game_id) as matches_officiated, 
+ROUND(AVG(goals), 2) as avg_goals_per_match, 
+SUM(goals) as total_goals_in_matches, 
+COUNT(CASE WHEN booked IS NOT NULL THEN 1 END) as matches_with_bookings 
+FROM world_cup_data 
+WHERE referee IS NOT NULL AND referee != '' 
+GROUP BY referee 
+HAVING matches_officiated >= 5 
+ORDER BY matches_officiated DESC; 
+
+5.2 Referee nationality patterns 
+sql 
+SELECT  
+SUBSTRING_INDEX(referee, '(', -1) as referee_country, 
+COUNT(DISTINCT referee) as number_of_referees, 
+COUNT(DISTINCT game_id) as matches_officiated, 
+ROUND(AVG(goals), 2) as avg_goals_per_match 
+FROM world_cup_data 
+WHERE referee IS NOT NULL  
+AND referee != ''  
+AND referee LIKE '%(%' 
+GROUP BY referee_country 
+HAVING matches_officiated >= 10 
+ORDER BY matches_officiated DESC; 
+
+5.3 High-scoring matches by referee 
+sql 
+SELECT  
+referee, 
+year, 
+date, 
+stadium, 
+MAX(CASE WHEN team_num = 1 THEN team END) as team1, 
+MAX(CASE WHEN team_num = 1 THEN goals END) as goals1, 
+MAX(CASE WHEN team_num = 2 THEN team END) as team2, 
+MAX(CASE WHEN team_num = 2 THEN goals END) as goals2, 
+(MAX(CASE WHEN team_num = 1 THEN goals END) +  
+MAX(CASE WHEN team_num = 2 THEN goals END)) as total_goals 
+FROM world_cup_data 
+WHERE referee IS NOT NULL 
+GROUP BY referee, year, date, stadium, game_id 
+HAVING total_goals >= 5 
+ORDER BY total_goals DESC; 
+
+5.4 Referee performance in high-stakes matches 
+sql 
+SELECT  
+referee, 
+stage, 
+COUNT(DISTINCT game_id) as matches, 
+ROUND(AVG(goals), 2) as avg_goals, 
+COUNT(CASE WHEN booked IS NOT NULL THEN 1 END) as matches_with_cards 
+FROM world_cup_data 
+WHERE referee IS NOT NULL  
+AND stage IN ('FINAL ROUND', '1/2 FINAL', '1/4 FINAL') 
+GROUP BY referee, stage 
+ORDER BY stage, matches DESC; 
+
+SCENARIO 6: TOURNAMENT FORMAT EVOLUTION 
+6.1 Tournament size evolution 
+sql 
+SELECT  
+year, 
+COUNT(DISTINCT team) as participating_teams, 
+COUNT(DISTINCT game_id) as total_matches, 
+COUNT(DISTINCT stage) as tournament_stages, 
+ROUND(COUNT(DISTINCT game_id) / COUNT(DISTINCT team), 2) as matches_per_team_avg 
+FROM world_cup_data 
+GROUP BY year 
+ORDER BY year; 
+
+6.2 Stage distribution by tournament 
+sql 
+SELECT  
+year, 
+stage, 
+COUNT(DISTINCT game_id) as matches_in_stage, 
+COUNT(DISTINCT team) as teams_in_stage 
+FROM world_cup_data 
+WHERE stage IS NOT NULL 
+GROUP BY year, stage 
+ORDER BY year, matches_in_stage DESC; 
+
+6.3 Tournament duration analysis 
+sql 
+SELECT  
+year, 
+MIN(STR_TO_DATE(SUBSTRING(date, 1, 10), '%d-%m-%Y')) as tournament_start, 
+MAX(STR_TO_DATE(SUBSTRING(date, 1, 10), '%d-%m-%Y')) as tournament_end, 
+DATEDIFF( 
+MAX(STR_TO_DATE(SUBSTRING(date, 1, 10), '%d-%m-%Y')), 
+MIN(STR_TO_DATE(SUBSTRING(date, 1, 10), '%d-%m-%Y')) 
+) as tournament_duration_days, 
+COUNT(DISTINCT game_id) as total_matches 
+FROM world_cup_data 
+GROUP BY year 
+ORDER BY year; 
+
+6.4 Penalty shootout evolution 
+sql 
+SELECT  
+year, 
+COUNT(CASE WHEN pk != 'False' AND pk IS NOT NULL THEN 1 END) as penalty_shootouts, 
+COUNT(DISTINCT game_id) as total_matches, 
+ROUND( 
+COUNT(CASE WHEN pk != 'False' AND pk IS NOT NULL THEN 1 END) /  
+COUNT(DISTINCT game_id) * 100, 2 
+) as penalty_shootout_percentage 
+FROM world_cup_data 
+GROUP BY year 
+HAVING penalty_shootouts > 0 
+ORDER BY year; 
+
+SCENARIO 7: ADVANCED KPIs AND BUSINESS METRICS 
+7.1 Tournament Competitiveness Index 
+sql 
+SELECT  
+year, 
+COUNT(DISTINCT team) as teams, 
+ROUND(STDDEV(goals), 3) as goal_variance, 
+ROUND(AVG(goals), 2) as avg_goals, 
+COUNT(CASE WHEN goals = 0 THEN 1 END) as shutouts, 
+ROUND( 
+COUNT(CASE WHEN goals = 0 THEN 1 END) / COUNT(*) * 100, 2 
+) as shutout_percentage, -- Competitiveness score (lower variance = more competitive) 
+ROUND(STDDEV(goals) / AVG(goals), 3) as competitiveness_ratio 
+FROM world_cup_data 
+GROUP BY year 
+ORDER BY year; 
+
+7.2 Stadium ROI Analysis 
+sql 
+SELECT  
+stadium, 
+year, 
+COUNT(DISTINCT game_id) as matches_hosted, 
+SUM(attendance) as total_spectators, 
+SUM(goals) as total_goals, 
+ROUND(SUM(goals) / COUNT(DISTINCT game_id), 2) as goals_per_match, 
+ROUND(SUM(attendance) / COUNT(DISTINCT game_id), 0) as avg_attendance, -- Entertainment value index 
+ROUND( 
+(SUM(goals) * 1000) / SUM(attendance), 3 
+) as entertainment_per_1000_fans 
+FROM world_cup_data 
+GROUP BY stadium, year 
+HAVING matches_hosted >= 3 
+ORDER BY entertainment_per_1000_fans DESC; 
+
+7.3 Team Consistency Analysis 
+sql 
+SELECT  
+team, 
+COUNT(DISTINCT year) as tournaments, 
+COUNT(*) as total_matches, 
+ROUND(AVG(goals), 2) as avg_goals, 
+ROUND(STDDEV(goals), 3) as goal_consistency, 
+MAX(goals) - MIN(goals) as goal_range, -- Consistency score (lower is more consistent) 
+ROUND(STDDEV(goals) / AVG(goals), 3) as consistency_index 
+FROM world_cup_data 
+GROUP BY team 
+HAVING tournaments >= 3 AND total_matches >= 10 
+ORDER BY consistency_index ASC; 
+
+7.4 Tournament Quality Metrics 
+sql 
+SELECT  
+year, 
+home as host_country, 
+COUNT(DISTINCT game_id) as total_matches, 
+ROUND(AVG(attendance), 0) as avg_attendance, 
+SUM(goals) as total_goals, 
+COUNT(CASE WHEN goals >= 3 THEN 1 END) as high_scoring_performances, -- Quality indicators 
+ROUND(AVG(goals), 2) as goals_per_team_match, 
+ROUND( 
+COUNT(CASE WHEN goals >= 3 THEN 1 END) / COUNT(*) * 100, 2 
+) as high_scoring_percentage, -- Overall tournament quality score 
+ROUND( 
+(AVG(goals) * 0.4) +  
+(AVG(attendance) / 1000 * 0.3) +  
+(COUNT(CASE WHEN goals >= 3 THEN 1 END) / COUNT(*) * 100 * 0.3), 2 
+) as quality_score 
+FROM world_cup_data 
+GROUP BY year, home 
+ORDER BY quality_score DESC; 
+
+Immediate Insights 
+• Historical scoring trends showing which eras were most/least offensive 
+• Team dynasty analysis identifying the most successful national teams 
+• Stadium economics - which venues provide best fan experience 
+• Geographic patterns - how hosting affects attendance and performance 
+• Referee impact - do certain officials influence match outcomes 
+• Tournament evolution - how formats changed to increase excitement 
+• Competitiveness metrics - which tournaments were most balanced 
